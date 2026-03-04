@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>五子棋</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 100vh; background: #f0d9b5; font-family: 'Microsoft YaHei', sans-serif;
+  }
+  h1 { margin-bottom: 10px; color: #333; }
+  #info {
+    font-size: 20px; margin-bottom: 10px; color: #333;
+    height: 30px; line-height: 30px;
+  }
+  canvas { cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.3); border-radius: 4px; }
+  #restart {
+    margin-top: 15px; padding: 10px 30px; font-size: 18px;
+    background: #8B4513; color: #fff; border: none; border-radius: 6px; cursor: pointer;
+  }
+  #restart:hover { background: #A0522D; }
+</style>
+</head>
+<body>
+<h1>五子棋</h1>
+<div id="info">黑棋下子</div>
+<canvas id="board"></canvas>
+<button id="restart">重新开始</button>
+
+<script>
+const SIZE = 15;          // 15x15 棋盘
+const CELL = 40;          // 每格像素
+const PADDING = 30;       // 边距
+const CANVAS_SIZE = CELL * (SIZE - 1) + PADDING * 2;
+const PIECE_R = CELL * 0.43;
+
+const canvas = document.getElementById('board');
+const ctx = canvas.getContext('2d');
+canvas.width = canvas.height = CANVAS_SIZE;
+
+let board = [];   // 0=空, 1=黑, 2=白
+let currentPlayer = 1;
+let gameOver = false;
+
+function init() {
+  board = Array.from({ length: SIZE }, () => Array(SIZE).fill(0));
+  currentPlayer = 1;
+  gameOver = false;
+  document.getElementById('info').textContent = '黑棋下子';
+  draw();
+}
+
+/* ---- 绘制 ---- */
+function draw() {
+  // 棋盘背景
+  ctx.fillStyle = '#DEB887';
+  ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+
+  // 网格线
+  ctx.strokeStyle = '#333';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < SIZE; i++) {
+    const pos = PADDING + i * CELL;
+    ctx.beginPath(); ctx.moveTo(PADDING, pos); ctx.lineTo(CANVAS_SIZE - PADDING, pos); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(pos, PADDING); ctx.lineTo(pos, CANVAS_SIZE - PADDING); ctx.stroke();
+  }
+
+  // 星位
+  const stars = [3, 7, 11];
+  ctx.fillStyle = '#333';
+  for (const r of stars) for (const c of stars) {
+    ctx.beginPath();
+    ctx.arc(PADDING + c * CELL, PADDING + r * CELL, 4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // 棋子
+  for (let r = 0; r < SIZE; r++) {
+    for (let c = 0; c < SIZE; c++) {
+      if (board[r][c] === 0) continue;
+      const x = PADDING + c * CELL;
+      const y = PADDING + r * CELL;
+      ctx.beginPath();
+      ctx.arc(x, y, PIECE_R, 0, Math.PI * 2);
+      if (board[r][c] === 1) {
+        // 黑棋渐变
+        const g = ctx.createRadialGradient(x - 3, y - 3, 2, x, y, PIECE_R);
+        g.addColorStop(0, '#636363'); g.addColorStop(1, '#0a0a0a');
+        ctx.fillStyle = g;
+      } else {
+        // 白棋渐变
+        const g = ctx.createRadialGradient(x - 3, y - 3, 2, x, y, PIECE_R);
+        g.addColorStop(0, '#fff'); g.addColorStop(1, '#d0d0d0');
+        ctx.fillStyle = g;
+      }
+      ctx.fill();
+      ctx.strokeStyle = '#222'; ctx.lineWidth = 0.5; ctx.stroke();
+    }
+  }
+}
+
+/* ---- 胜负判断 ---- */
+function checkWin(r, c) {
+  const p = board[r][c];
+  const dirs = [[0,1],[1,0],[1,1],[1,-1]];
+  for (const [dr, dc] of dirs) {
+    let count = 1;
+    for (let d = 1; d < 5; d++) { const nr=r+dr*d, nc=c+dc*d; if (nr>=0&&nr<SIZE&&nc>=0&&nc<SIZE&&board[nr][nc]===p) count++; else break; }
+    for (let d = 1; d < 5; d++) { const nr=r-dr*d, nc=c-dc*d; if (nr>=0&&nr<SIZE&&nc>=0&&nc<SIZE&&board[nr][nc]===p) count++; else break; }
+    if (count >= 5) return true;
+  }
+  return false;
+}
+
+function isFull() { return board.every(row => row.every(v => v !== 0)); }
+
+/* ---- 点击落子 ---- */
+canvas.addEventListener('click', e => {
+  if (gameOver) return;
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  const c = Math.round((mx - PADDING) / CELL);
+  const r = Math.round((my - PADDING) / CELL);
+  if (r < 0 || r >= SIZE || c < 0 || c >= SIZE) return;
+  if (board[r][c] !== 0) return;
+
+  board[r][c] = currentPlayer;
+  draw();
+
+  if (checkWin(r, c)) {
+    gameOver = true;
+    document.getElementById('info').textContent = (currentPlayer === 1 ? '黑棋' : '白棋') + '获胜！';
+    return;
+  }
+  if (isFull()) {
+    gameOver = true;
+    document.getElementById('info').textContent = '平局！';
+    return;
+  }
+  currentPlayer = currentPlayer === 1 ? 2 : 1;
+  document.getElementById('info').textContent = (currentPlayer === 1 ? '黑棋' : '白棋') + '下子';
+});
+
+document.getElementById('restart').addEventListener('click', init);
+
+init();
+</script>
+</body>
+</html>
